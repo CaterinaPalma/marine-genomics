@@ -14,21 +14,22 @@ knitr::opts_chunk$set(
   warning = FALSE)
 ```
 
-# Information 
+## Information 
 
 #### Terminal 
 ... is commands for interacting with actual computer e.g. moving files, looking at content of files. 
+
 #### Console 
-is commands ONLY for R code. 
+...is commands ONLY for R code. 
 
-# What do these commands mean? 
+## What do these commands mean? 
 
-"ls" command tells us what is present in our current directory. 
-"ls -l" command tells us the long format, every single item in the current directory (I prefer this). 
-"cd" = changes directory  
-"mkdir" = makes a new directory folder 
+- "ls" command tells us what is present in our current directory. 
+- "ls -l" command tells us the long format, every single item in the current directory (I prefer this). 
+- "cd" = changes directory  
+- "mkdir" = makes a new directory folder 
 then when i command "ls" again, it shows all the items again, now including the new directory folder. 
-"pwd" = shows you where you are, which folder/directory you are working in. 
+- "pwd" = shows you where you are, which folder/directory you are working in. 
 
 
 
