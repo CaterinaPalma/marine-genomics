@@ -24,7 +24,7 @@ knitr::opts_chunk$set(
 
 ## What do these commands mean? 
 
-- "ls" command tells us what is present in our current directory. 
+- "ls" command tells us what is present in our current directory (it lists our current directory). 
 - "ls -l" command tells us the long format, every single item in the current directory (I prefer this). 
 - "cd" = changes directory  
 - "mkdir" = makes a new directory folder 
