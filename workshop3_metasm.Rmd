@@ -13,7 +13,38 @@ knitr::opts_chunk$set(
   warning = FALSE)
 ```
 
+# Workshop 3 
 
+## Examine Reads 
+
+### Step 1. Making Sub-Directory 
+and then making a symbolic link. 
+
+```bash 
+mkdir raw_data
+cd raw_data
+ln -s /pvol/data/metagenome_assembly/reads_R10_0.5.fastq.gz raw_reads.fastq.gz
+```
+
+then back up out of raw data... 
+
+```bash 
+cd ..
+``` 
+
+### Step 2. Check files are correct using "ls" 
+This lists all files and directories in the project. Use the "-l" option to show extended details on each file which will allow you to see the source and target paths for the symbolic link. 
+
+```bash
+ls -lR .
+``` 
+
+# Read Length Distribution 
+Taking shorter sequences and trying to connect them to longer sequences. 
+
+```bash 
+zcat raw_data/raw_reads.fastq.gz | head -n 40000 | bioawk -c fastx '{print $name,length($seq)}' > read_lengths.txt
+``` 
 
 
 
