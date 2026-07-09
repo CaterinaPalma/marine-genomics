@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 ## Examine Reads 
 
-### Step 1. Making Sub-Directory 
+# Step 1. Making Sub-Directory 
 and then making a symbolic link. 
 
 ```bash 
@@ -32,19 +32,231 @@ then back up out of raw data...
 cd ..
 ``` 
 
-### Step 2. Check files are correct using "ls" 
+### Check files are correct using "ls" 
 This lists all files and directories in the project. Use the "-l" option to show extended details on each file which will allow you to see the source and target paths for the symbolic link. 
 
 ```bash
 ls -lR .
 ``` 
 
-# Read Length Distribution 
+### Read Length Distribution 
 Taking shorter sequences and trying to connect them to longer sequences. 
 
 ```bash 
 zcat raw_data/raw_reads.fastq.gz | head -n 40000 | bioawk -c fastx '{print $name,length($seq)}' > read_lengths.txt
 ``` 
+
+### Creating a plot to visualise the read lengths: 
+
+```{r}
+library(tidyverse)
+
+rl_data <- read_tsv("read_lengths.txt",col_names = c("id","length"), show_col_types = FALSE)
+
+ggplot(rl_data, aes(x=length/1000)) + 
+  geom_histogram(binwidth = 2) +
+  xlab("Read Length Kb") + ylab("Number of Reads")
+```
+The above histogram Title: Figure 1: Histogram of read lengths in the mock nanopore sequencing dataset. 
+
+### Calculating read N50 
+
+The method we will use to calculate N50 is described by the following pseudo-code
+
+Step 1: Rank all reads from longest to shortest
+Step 2: Create a new column with the cumulative sum of read lengths (starting from longest read).
+Step 3: Find the read at which the cumulative sum surpasses 50% of the total read volume (ie total sum of all read lengths)
+
+```{r}
+total_len <- sum(rl_data$length)
+
+rl_data %>% 
+  arrange(desc(length)) %>% 
+  mutate(cumsum = cumsum(length)) %>% 
+  filter(cumsum>total_len/2) %>% 
+  head(n=1)
+```
+
+# Step 2. Assembly 
+Assemble our reads! We will use flye for this task because it is probably the best assembler for long-read metagenome data.
+
+1. Make flye directory 
+
+```bash 
+mkdir flye
+cd flye
+```
+
+2. Making slurm 
+
+save below into shell script    
+
+#!/bin/bash   
+#SBATCH --time=360   
+#SBATCH --ntasks=8 --mem=4gb   
+   
+echo "Starting flye in $(pwd) at $(date)"
+   
+flye --nano-hq ../raw_data/raw_reads.fastq.gz --threads 8 --out-dir mock --meta
+   
+echo "Finished flye in $(pwd) at $(date)"
+
+3. back to terminal... 
+
+```bash 
+sbatch run_flye.sh
+```
+
+My slurm number is "slurm-376" 
+
+4. Monitor job output by... 
+
+```bash 
+tail -f slurm-376.out
+``` 
+
+Output: 
+
+Total length:   18269961
+Fragments:      41
+Fragments N50:  1866219
+Largest frg:    4681059
+Scaffolds:      0
+Mean coverage:  12
+
+Once all finished. Go to flye then mock folder and export "assembly_graph.gfa" and put into Bandage. 
+
+##### Question 3.1
+What is the size and coverage of the largest contig in the assembly? 
+- Largest size = 4,681,059 bp 
+- Coverage (i.e. depth) = 21 
+
+##### Question 3.2
+Your assembly should contain at least one (probably several) large circular contigs. Based on size and coverage can you guess which contig corresponds to the genome of the most abundant species in our mock community?
+
+- Largest contig corresponds to the Geitlerinema sp. PCC 7407 species. 
+
+#### Chromosome lengths and GC content in the reference data 
+
+Make a plain text file and save it as "gc.hwk" in the main folder with the below copy and pasted: 
+
+# Bioawk script for calculating gc and printing name,length,size
+BEGIN {
+	OFS="\t"
+}
+
+{
+	l=length($seq)
+	ngc=gsub("[cgCG]","",$seq)
+	nat=gsub("[taTA]","",$seq)
+	print $name,l,ngc/(ngc+nat)
+}
+
+#### All the reference genomes for our mock community can be found at the path /pvol/data/mg/refs/. Take a look with ls
+
+```bash 
+ls /pvol/data/mg/refs/*.fna
+``` 
+
+Now test awk program by using it to print the GC content and contig lengths for all chromosomes in these files. Here we use cat to concatenate all the files together and then use a pipe to send their contents to our bioawk program
+
+```bash 
+cat /pvol/data/mg/refs/*.fna | bioawk -c fastx -f gc.awk
+``` 
+
+# Step 3. Basic Assembly QC
+Previously we used gc.awk to print the length and GC content for reference sequences. Now we will do the same thing for our assembled contigs.
+
+1. Make New Directory 
+
+```bash 
+mkdir assembly_check
+cd assembly_check
+``` 
+
+2. Use your gc.awk script to print GC and lengths for the assembly
+
+```bash 
+cat ../flye/mock/assembly.fasta | bioawk -c fastx -f ../gc.awk 
+``` 
+
+3. Run the command again but this time send outputs to a file called assembly.gc.tsv.
+
+```bash 
+cat ../mock/assembly.fasta | bioawk -c fastx -f ../gc.awk > assembly.gc.tsv
+```
+
+We have GC content in "assembly.gc.tsv" and coverage depth in the "assembly_info.txt" file produced by flye. Let’s read those and join them together using R. 
+
+```{r}
+gc <- read_tsv("flye/assembly_check/assembly.gc.tsv",col_names = c("#seq_name","length","GC"))
+info <- read_tsv("flye/mock/assembly_info.txt")
+```
+
+Then: 
+
+```{r}
+gc_info <- info %>% 
+  left_join(gc)
+```
+
+Then: 
+
+```{r}
+gc_info %>% 
+  ggplot(aes(x=GC)) + geom_histogram() + ylab("Number of contigs")
+```
+Figure 2: Histogram of GC content values values for assembled contigs in a flye assembly of the mock community dataset. 
+
+A plot of GC vs coverage helps to identify clusters that have similar values for both these parameters. In making this plot we first filter the data to remove contigs with unrealistically high GC content and very high coverage depth (probably repeats). 
+
+```{r}
+gc_info %>% 
+  filter(GC<0.8) %>% 
+  filter(cov.<25) %>% 
+  ggplot(aes(x=GC,y=cov.)) + geom_point(aes(size=length)) + ylab("Coverage depth")
+```
+Figure 3: Coverage and GC content of assembled contigs in the mock community assembly. Contig lengths are shown through point size.
+
+Adding labels allows us to look at the contigs with highest coverage and compare these with the contigs in bandage. Notice how the contigs for Vibrio alfacsensis cluster together.
+
+##### Question 3.4
+In the plot of GC versus coverage there is a cluster of contigs with high GC content (>60%) and coverage depth around 7.5x. Which species are these likely to belong to?
+
+```{r}
+install.packages("ggrepel")
+```
+
+
+```{r}
+library(ggrepel)
+gc_info %>% 
+  filter(GC<0.8) %>% 
+  filter(cov.<25) %>% 
+  ggplot(aes(x=GC,y=cov.)) + geom_point(aes(size=length)) + geom_label_repel(aes(label=`#seq_name`))
+```
+Figure 4: Coverage and GC content of assembled contigs in the mock community assembly. Contig lengths are shown through point size. Only contigs with more than 25x coverage and less than 80% GC coverage are shown.
+
+# Assembly size vs reference size
+
+Assessing out mock assembly because we should know every part of it, because it is a mock. 
+We will do this from within our top-level project directory. Wherever you are you can change to this directory with the following command (assuming your project was called workshop3_metasm and you put it in your home directory). 
+
+```bash 
+cd ~/workshop3_metasm
+``` 
+
+Firstly lets calculate the total length of our reference sequences. This command builds on one we ran earlier to list the size and GC content of reference chromosomes, but this time we have added another very simple awk program to take the sum of the second column.
+
+```bash 
+cat /pvol/data/mg/refs/*.fna | bioawk -c fastx -f gc.awk | awk '{sum+=$2}END{print sum}'
+``` 
+
+
+
+
+
+
 
 
 
