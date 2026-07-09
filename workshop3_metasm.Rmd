@@ -1,0 +1,22 @@
+---
+title: "workshop3_metasm"
+author: "CaterinaPalma"
+date: "2026-07-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  include = TRUE,
+  message = FALSE,
+  warning = FALSE)
+```
+
+
+
+
+
+
+
+
