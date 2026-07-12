@@ -339,15 +339,3 @@ Output: batch job 437 (slurm-437)
 tail -f slurm-437.out
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
