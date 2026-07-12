@@ -1,0 +1,61 @@
+---
+title: "01_assembly"
+author: "CaterinaPalma"
+date: "2026-07-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  include = TRUE,
+  message = FALSE,
+  warning = FALSE)
+```
+
+First I need to go into the directory I have already made called "Workshop_4_Metagenome_Function" I do this by: 
+
+```bash
+cd Workshop_4_Metagenome_Function
+``` 
+
+Now I can begin with step 1. 
+
+
+# Step 1: Making a directory called flye 
+
+```bash 
+mkdir flye
+cd flye
+```
+
+# Step 2: Make a symbolic link to the bbd read area 
+
+```bash 
+ln -s /pvol/data/metagenome_assembly/bbd_0.1.fastq.gz .
+```
+
+# Step 3: Make shell script and put below into it 
+
+#!/bin/bash
+#SBATCH --time=720
+#SBATCH --ntasks=12 --mem=10gb
+
+echo "Starting flye bbd in $(pwd) at $(date)"
+
+flye --nano-hq ../raw_data/bbd_0.1.fastq.gz --threads 12 --out-dir bbd --meta
+
+echo "Finished flye bbd in $(pwd) at $(date)"
+
+# Step 4: Submit the job 
+
+```bash 
+sbatch run_flye_bbd.sh
+``` 
+Output: job 438 (slurm-438)
+
+I can monitor job progress using: 
+
+```bash 
+tail -f slurm-438.out
+``` 
