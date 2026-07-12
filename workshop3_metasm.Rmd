@@ -289,6 +289,59 @@ grep '>' bins/*
 
 # Step 5. Check bin quality with checkM 
 
+1. First create a working directory for running checkM
+
+```bash 
+cd ~/workshop3_metasm
+mkdir checkm
+cd checkm
+``` 
+
+2. Then we prepare inputs for checkM. We copy over the bins from metabat
+
+```bash 
+mkdir bins
+cp ../metabat/bins/metabat.*.fa bins/
+``` 
+
+3. Remember that metabat failed to include our longest contig in bins. In my assembly this was contig_28. We need to extract this contig from our assembly and include it with our metabat bins.
+
+```bash 
+samtools faidx ../flye/mock/assembly.fasta contig_28 > bins/contig_28.fa
+``` 
+
+4. Now run the checkm workflow with a slurm job script & save the below: 
+
+#!/bin/bash
+#SBATCH --time=60
+#SBATCH --ntasks=4 --mem=40gb
+
+echo "Starting checkm in $(pwd) at $(date)"
+
+shopt -s expand_aliases
+alias checkm='apptainer run -B /pvol/:/pvol /pvol/data/sif/checkm.sif checkm'
+
+checkm lineage_wf bins out -t 4 -x fa -f checkm_results.txt
+
+echo "Finished checkm in $(pwd) at $(date)"
+
+5. Submit the job with: 
+
+```bash 
+sbatch run_checkm.sh
+``` 
+
+Output: batch job 437 (slurm-437)
+
+6. Monitor progress with: 
+
+```bash 
+tail -f slurm-437.out
+```
+
+
+
+
 
 
 
